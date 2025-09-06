@@ -13,6 +13,7 @@ if (isset($_GET['logout'])) {
 }
 
 $user_id = $_SESSION['user_id'] ?? 1;
+$user_role = $_SESSION['role'] ?? 'user'; // <-- get role from session
 
 $result = $conn->query("SELECT * FROM users WHERE user_id=$user_id");
 if ($result && $result->num_rows > 0) {
@@ -175,8 +176,11 @@ body {
 <div class="sidebar">
 <h2>JobEntry</h2>
 <a href="dashboard.php">Dashboard</a>
-<a href="find_jobs.php">Find Jobs</a>
-<a href="hire_talent.php">Hire Talent</a>
+<?php if ($user_role === 'user'): ?>
+    <a href="find_job.php">Find Jobs</a>
+<?php elseif ($user_role === 'admin'): ?>
+    <a href="hire_talent.php">Hire Talent</a>
+<?php endif; ?>
 <a href="profile.php">Profile</a>
 <a href="?logout=true">Sign Out</a>
 </div>

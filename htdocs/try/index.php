@@ -8,12 +8,14 @@ $message = "";
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
     $email = trim($_POST['email']);
     $password = trim($_POST['password']);
+    $role = trim($_POST['role']); // Capture selected role
 
-    // Hard-coded admin
-    if ($email === "admin@gmail.com" && $password === "1234") {
+    // Hard-coded admin (optional if you want to keep)
+    if ($email === "admin@gmail.com" && $password === "1234" && $role === "admin") {
         $_SESSION['user_id'] = 1;
         $_SESSION['full_name'] = "Admin";
         $_SESSION['email'] = "admin@gmail.com";
+        $_SESSION['role'] = "admin";
         header("Location: dashboard.php");
         exit;
     }
@@ -26,13 +28,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
 
     if ($result->num_rows == 1) {
         $user = $result->fetch_assoc();
-        $_SESSION['user_id'] = $user['user_id'];
-        $_SESSION['full_name'] = $user['full_name'];
-        $_SESSION['email'] = $user['email'];
-        header("Location: dashboard.php");
-        exit;
+
+        // ✅ Verify password + role check
+        if (password_verify($password, $user['password']) && $user['role'] === $role) {
+            $_SESSION['user_id'] = $user['user_id'];
+            $_SESSION['full_name'] = $user['full_name'];
+            $_SESSION['email'] = $user['email'];
+            $_SESSION['role'] = $user['role'];
+
+            // ✅ Redirect based on role
+            if ($user['role'] === 'admin') {
+                header("Location: dashboard.php"); // admin dashboard
+            } else {
+                header("Location: dashboard.php"); // user dashboard
+            }
+            exit;
+        } else {
+            $message = "❌ Invalid credentials or role mismatch.";
+        }
     } else {
-        $message = "❌ Invalid email or password or account disabled.";
+        $message = "❌ Invalid email or account disabled.";
     }
 }
 
@@ -41,6 +56,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['signup'])) {
     $full_name = trim($_POST['full_name']);
     $email = trim($_POST['email']);
     $password = trim($_POST['password']);
+    $role = trim($_POST['role']); // Capture role
 
     // Hash password for security
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
@@ -54,16 +70,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['signup'])) {
     if ($result_check->num_rows > 0) {
         $message = "❌ Email already exists. Please login.";
     } else {
-        $stmt = $conn->prepare("INSERT INTO users (full_name, email, password) VALUES (?, ?, ?)");
-        $stmt->bind_param("sss", $full_name, $email, $hashedPassword);
+        $stmt = $conn->prepare("INSERT INTO users (full_name, email, password, role) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("ssss", $full_name, $email, $hashedPassword, $role);
 
         if ($stmt->execute()) {
             $user_id = $stmt->insert_id;
             $_SESSION['user_id'] = $user_id;
             $_SESSION['full_name'] = $full_name;
             $_SESSION['email'] = $email;
+            $_SESSION['role'] = $role;
 
-            header("Location: dashboard.php");
+            // ✅ Redirect based on role
+            if ($role === 'admin') {
+                header("Location: dashboard.php"); // admin dashboard
+            } else {
+                header("Location: dashboard.php"); // user dashboard
+            }
             exit;
         } else {
             $message = "❌ Error: " . $stmt->error;
@@ -115,19 +137,35 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['signup'])) {
         </ul>
 
         <div class="tab-content">
+          <!-- LOGIN -->
           <div class="tab-pane fade show active" id="login">
             <form method="POST">
               <div class="mb-3"><label>Email</label><input type="email" name="email" class="form-control" required></div>
               <div class="mb-3"><label>Password</label><input type="password" name="password" class="form-control" required></div>
+              <div class="mb-3">
+                <label>Role</label>
+                <select name="role" class="form-control" required>
+                  <option value="user">User (Employee)</option>
+                  <option value="admin">Admin (Employer)</option>
+                </select>
+              </div>
               <button type="submit" name="login" class="btn btn-custom w-100">Login</button>
             </form>
           </div>
 
+          <!-- SIGNUP -->
           <div class="tab-pane fade" id="signup">
             <form method="POST">
               <div class="mb-3"><label>Full Name</label><input type="text" name="full_name" class="form-control" required></div>
               <div class="mb-3"><label>Email</label><input type="email" name="email" class="form-control" required></div>
               <div class="mb-3"><label>Password</label><input type="password" name="password" class="form-control" required></div>
+              <div class="mb-3">
+                <label>Role</label>
+                <select name="role" class="form-control" required>
+                  <option value="user">User (Employee)</option>
+                  <option value="admin">Admin (Employer)</option>
+                </select>
+              </div>
               <button type="submit" name="signup" class="btn btn-custom w-100">Sign Up</button>
             </form>
           </div>

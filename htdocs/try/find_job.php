@@ -2,15 +2,22 @@
 session_start();
 include 'job_db.php';
 
-// Only allow logged in users
+// Only allow logged-in users
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");
     exit;
 }
 
 // Get current user info
-$user_name = $_SESSION['username'] ?? '';
+$user_name  = $_SESSION['username'] ?? '';
 $user_email = $_SESSION['email'] ?? '';
+$role       = $_SESSION['role'] ?? 'user'; // ✅ Role check
+
+// Admins should not access Find Jobs
+if ($role === 'admin') {
+    header("Location: hire_talent.php");
+    exit;
+}
 
 // Handle logout
 if (isset($_GET['logout'])) {
@@ -50,7 +57,6 @@ body { margin: 0; font-family: Arial, sans-serif; background-color: #f8f9fa; }
     <h2>JobEntry</h2>
     <a href="dashboard.php">Dashboard</a>
     <a href="find_job.php">Find Jobs</a>
-    <a href="hire_talent.php">Hire Talent</a>
     <a href="profile.php">Profile</a>
     <a href="?logout=true">Sign Out</a>
 </div>

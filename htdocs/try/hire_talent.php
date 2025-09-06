@@ -8,6 +8,12 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+// ✅ Restrict access to admins only
+if ($_SESSION['role'] !== 'admin') {
+    header("Location: dashboard.php");
+    exit();
+}
+
 // Logout
 if (isset($_GET['logout'])) {
     session_destroy();
@@ -101,12 +107,12 @@ body { margin:0; font-family:Arial,sans-serif; background-color:#FEFEFE; color:#
 <body>
 
 <div class="sidebar">
-<h2>JobEntry</h2>
-<a href="dashboard.php">Dashboard</a>
-<a href="find_job.php">Find Jobs</a>
-<a href="hire_talent.php">Hire Talent</a>
-<a href="profile.php">Profile</a>
-<a href="?logout=true">Sign Out</a>
+  <h2>JobEntry</h2>
+  <a href="dashboard.php">Dashboard</a>
+  <!-- ✅ Admins only see Hire Talent -->
+  <a href="hire_talent.php">Hire Talent</a>
+  <a href="profile.php">Profile</a>
+  <a href="?logout=true">Sign Out</a>
 </div>
 
 <div class="main-content">

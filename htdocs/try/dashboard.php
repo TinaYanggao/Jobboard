@@ -17,13 +17,14 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Get current user info
-$user = $_SESSION['full_name'] ?? 'User';
+$user       = $_SESSION['full_name'] ?? 'User';
 $user_email = $_SESSION['email'] ?? '';
-$user_id = $_SESSION['user_id'] ?? 0;
+$user_id    = $_SESSION['user_id'] ?? 0;
+$role       = $_SESSION['role'] ?? 'user'; // ✅ Get role
 
-// ✅ Fetch applications for logged-in user
+// Fetch applications for logged-in user (for regular users)
 $applications = [];
-if ($user_email) {
+if ($role === 'user' && $user_email) {
     $stmt = $conn->prepare("
         SELECT a.*, 
                j.title AS job_title
@@ -37,6 +38,25 @@ if ($user_email) {
     $result = $stmt->get_result();
     if ($result->num_rows > 0) {
         $applications = $result->fetch_all(MYSQLI_ASSOC);
+    }
+    $stmt->close();
+}
+
+// Fetch accepted applicants for admin
+$accepted_applicants = [];
+if ($role === 'admin') {
+    $stmt = $conn->prepare("
+        SELECT a.*, 
+               j.title AS job_title
+        FROM applications a
+        LEFT JOIN jobs j ON a.job_id = j.id
+        WHERE a.status = 'Accepted'
+        ORDER BY a.applied_at DESC
+    ");
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result->num_rows > 0) {
+        $accepted_applicants = $result->fetch_all(MYSQLI_ASSOC);
     }
     $stmt->close();
 }
@@ -73,8 +93,13 @@ body { margin: 0; font-family: 'Segoe UI', sans-serif; background-color: #f4f6f9
 <div class="sidebar">
   <h2>JobEntry</h2>
   <a href="dashboard.php">Dashboard</a>
-  <a href="find_job.php">Find Jobs</a>
-  <a href="hire_talent.php">Hire Talent</a>
+
+  <?php if ($role === 'user'): ?>
+      <a href="find_job.php">Find Jobs</a>
+  <?php elseif ($role === 'admin'): ?>
+      <a href="hire_talent.php">Hire Talent</a>
+  <?php endif; ?>
+
   <a href="profile.php">Profile</a>
   <a href="?logout=true" onclick="confirmLogout(event)">Sign Out</a>
 </div>
@@ -83,39 +108,67 @@ body { margin: 0; font-family: 'Segoe UI', sans-serif; background-color: #f4f6f9
   <div class="welcome-card">
     <h2>Welcome back, <?php echo htmlspecialchars($user); ?>!</h2>
     <p>Discover jobs, connect with top companies, and explore talent opportunities.</p>
-    <a href="find_job.php" class="btn btn-explore">Explore Jobs</a>
-    <a href="hire_talent.php" class="btn btn-hire">Hire Talent</a>
+
+    <?php if ($role === 'user'): ?>
+      <a href="find_job.php" class="btn btn-explore">Explore Jobs</a>
+    <?php elseif ($role === 'admin'): ?>
+      <a href="hire_talent.php" class="btn btn-hire">Hire Talent</a>
+    <?php endif; ?>
   </div>
 
   <div class="mt-4">
-    <?php if (!empty($applications)): ?>
-        <?php foreach ($applications as $app): ?>
-            <div class="card mb-3">
-                <div class="card-body">
-                    <h5 class="card-title"><?php echo htmlspecialchars($app['job_title']); ?></h5>
-                    <p class="mb-1"><strong>Applied on:</strong> <?php echo date('M d, Y', strtotime($app['applied_at'])); ?></p>
-                    <p class="mb-2"><strong>Status:</strong> 
-                        <?php if ($app['status'] == 'Pending'): ?>
-                            <span class="status-badge status-pending">Pending</span>
-                        <?php elseif ($app['status'] == 'Accepted'): ?>
-                            <span class="status-badge status-accepted">Accepted</span>
-                        <?php elseif ($app['status'] == 'Rejected'): ?>
-                            <span class="status-badge status-rejected">Rejected</span>
-                        <?php else: ?>
-                            <span class="status-badge"><?php echo htmlspecialchars($app['status']); ?></span>
+    <?php if ($role === 'user'): ?>
+        <?php if (!empty($applications)): ?>
+            <?php foreach ($applications as $app): ?>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title"><?php echo htmlspecialchars($app['job_title']); ?></h5>
+                        <p class="mb-1"><strong>Applied on:</strong> <?php echo date('M d, Y', strtotime($app['applied_at'])); ?></p>
+                        <p class="mb-2"><strong>Status:</strong> 
+                            <?php if ($app['status'] == 'Pending'): ?>
+                                <span class="status-badge status-pending">Pending</span>
+                            <?php elseif ($app['status'] == 'Accepted'): ?>
+                                <span class="status-badge status-accepted">Accepted</span>
+                            <?php elseif ($app['status'] == 'Rejected'): ?>
+                                <span class="status-badge status-rejected">Rejected</span>
+                            <?php else: ?>
+                                <span class="status-badge"><?php echo htmlspecialchars($app['status']); ?></span>
+                            <?php endif; ?>
+                        </p>
+                        <?php if (!empty($app['cover_letter'])): ?>
+                            <p><strong>Cover Letter:</strong><br><?php echo nl2br(htmlspecialchars($app['cover_letter'])); ?></p>
                         <?php endif; ?>
-                    </p>
-                    <?php if (!empty($app['cover_letter'])): ?>
-                        <p><strong>Cover Letter:</strong><br><?php echo nl2br(htmlspecialchars($app['cover_letter'])); ?></p>
-                    <?php endif; ?>
-                    <?php if (!empty($app['resume_path'])): ?>
-                        <p><a href="<?php echo htmlspecialchars($app['resume_path']); ?>" target="_blank">View Resume</a></p>
-                    <?php endif; ?>
+                        <?php if (!empty($app['resume_path'])): ?>
+                            <p><a href="<?php echo htmlspecialchars($app['resume_path']); ?>" target="_blank">View Resume</a></p>
+                        <?php endif; ?>
+                    </div>
                 </div>
-            </div>
-        <?php endforeach; ?>
-    <?php else: ?>
-        <p class="text-muted">You haven't applied to any jobs yet.</p>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <p class="text-muted">You haven't applied to any jobs yet.</p>
+        <?php endif; ?>
+    <?php elseif ($role === 'admin'): ?>
+        <?php if (!empty($accepted_applicants)): ?>
+            <h4>Accepted Applicants</h4>
+            <?php foreach ($accepted_applicants as $app): ?>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title"><?php echo htmlspecialchars($app['job_title']); ?></h5>
+                        <p class="mb-1"><strong>Applicant:</strong> <?php echo htmlspecialchars($app['applicant_name'] ?? $app['applicant_email']); ?></p>
+                        <p class="mb-1"><strong>Email:</strong> <?php echo htmlspecialchars($app['applicant_email']); ?></p>
+                        <p class="mb-1"><strong>Applied on:</strong> <?php echo date('M d, Y', strtotime($app['applied_at'])); ?></p>
+                        <?php if (!empty($app['cover_letter'])): ?>
+                            <p><strong>Cover Letter:</strong><br><?php echo nl2br(htmlspecialchars($app['cover_letter'])); ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($app['resume_path'])): ?>
+                            <p><a href="<?php echo htmlspecialchars($app['resume_path']); ?>" target="_blank">View Resume</a></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <p class="text-muted">No accepted applicants yet.</p>
+        <?php endif; ?>
     <?php endif; ?>
   </div>
 </div>
